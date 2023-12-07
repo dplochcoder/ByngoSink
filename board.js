@@ -15,6 +15,9 @@ const activePolygonPct = Math.sqrt(activePct);
 const svgXOffset = 4;
 const svgYOffset = 0;
 
+let members = [];
+let teams = {}
+
 class CellState {
     goal = "";
     hover = false;
@@ -639,8 +642,129 @@ window.addEventListener("REJOINED", (data) => {
     fillBoard(event.boardMin, event.teamColours);
 });
 
+function sendChatMessage(chatMessageHTMLEl) {
+    const chatBox = document.getElementById("chat-box");
+    // flex direction is column-reverse so we prepend
+    chatBox.prepend(chatMessageHTMLEl);
+}
+
+function createColouredSpan(text, colour) {
+    const span = document.createElement("span");
+    if (colour) {
+        span.style["color"] = colour;
+    }
+    span.innerText = text;
+    return span;
+}
+
+function createSystemMessageForMember(memberName, message, colour) {
+    const memberSpan = createColouredSpan(memberName, colour);
+    const chatMessage = create_with_class("div", "chat-message");
+    chatMessage.appendChild(memberSpan);
+    chatMessage.innerHTML += ` ${message}`;
+    return chatMessage;
+}
+
+function getMemberColour(member, membersEvent) {
+    if (member.teamId) {
+        const team = membersEvent.teams[member.teamId];
+        if (team) {
+            return team.colour;
+        }
+    }
+    return null;
+}
+
+function sendSystemMessagesFromUpdatedMembers(membersEvent) {
+    const newMembers = membersEvent.members;
+    for (const newMember of newMembers) {
+        const colour = getMemberColour(newMember, membersEvent);
+        let teamChanged = false;
+        const existingMember = members.find(member => member && (member.name === newMember.name));
+        if (!existingMember) {
+            if (newMember.connected) {
+                sendChatMessage(createSystemMessageForMember(newMember.name, "joined", colour));
+                teamChanged = true;
+            }
+            if (!newMember.connected) {
+                // when you join a room where people have already disconnected
+                sendChatMessage(createSystemMessageForMember(newMember.name, "is disconnected", colour));
+            }
+        }
+        if (existingMember) {
+            if (existingMember.teamId !== newMember.teamId) {
+                teamChanged = true;
+            }
+            if (existingMember.connected && !newMember.connected) {
+                sendChatMessage(createSystemMessageForMember(newMember.name, "disconnected", colour));
+            }
+            if (!existingMember.connected && newMember.connected) {
+                sendChatMessage(createSystemMessageForMember(newMember.name, "reconnected", colour));
+            }
+        }
+        const newTeam = membersEvent.teams[newMember.teamId];
+        if (teamChanged && newTeam) {
+            const chatMessage = create_with_class("div", "chat-message");
+            const memberSpan = createColouredSpan(newMember.name, newTeam.colour);
+            const teamSpan = createColouredSpan(`team ${newTeam.name}`, newTeam.colour);
+            chatMessage.appendChild(memberSpan);
+            chatMessage.innerHTML += " joined ";
+            chatMessage.appendChild(teamSpan);
+            sendChatMessage(chatMessage);
+        }
+    }
+    for (const existingMember of members) {
+        const newMember = newMembers.find(member => member && (member.name === existingMember.name));
+        if (!newMember) {
+            const colour = getMemberColour(existingMember, membersEvent);
+            sendChatMessage(createSystemMessageForMember(existingMember.name, "left", colour));
+        }
+    }
+
+    members = newMembers;
+}
+
+function createSystemMessageForTeam(team, message) {
+    const teamSpan = createColouredSpan(`Team ${team.name}`, team.colour);
+    const chatMessage = create_with_class("div", "chat-message");
+    chatMessage.appendChild(teamSpan);
+    chatMessage.innerHTML += ` ${message}`;
+    return chatMessage;
+}
+
+function sendSystemMessagesFromUpdatedTeams(membersEvent) {
+    const newTeams = membersEvent.teams;
+    for (const teamId in newTeams) {
+        const newTeam = newTeams[teamId];
+        const existingTeam = teams[teamId];
+        if (!existingTeam) {
+            sendChatMessage(createSystemMessageForTeam(newTeam, "was created"));
+        }
+    }
+
+    for (const teamId in teams) {
+        const newTeam = newTeams[teamId];
+        if (!newTeam) {
+            sendChatMessage(createSystemMessageForTeam(newTeam, "was removed"));
+        }
+    }
+
+    teams = newTeams;
+}
+
+function sendSystemMessagesFromUpdatedMembersEvent(membersEvent) {
+    if (membersEvent.verb !== "MEMBERS") {
+        console.error("sendSystemMessagesFromUpdatedMembersEvent called with invalid event");
+        return;
+    }
+
+    sendSystemMessagesFromUpdatedMembers(membersEvent);
+    sendSystemMessagesFromUpdatedTeams(membersEvent);
+}
+
 window.addEventListener("MEMBERS", (data) => {
     const event = data.detail;
+    sendSystemMessagesFromUpdatedMembersEvent(event)
     const teamSelectorInner = document.getElementById("teamSelector-inner");
     teamSelectorInner.textContent = "";
     for (const teamId in event.teams) {
