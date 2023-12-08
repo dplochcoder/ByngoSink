@@ -130,3 +130,9 @@ footer {
     text-wrap: nowrap;
     width:30rem;
 }
+
+#error-display {
+    background-color: red;
+    margin-bottom: 1em;
+    padding: 0.5em;
+}
