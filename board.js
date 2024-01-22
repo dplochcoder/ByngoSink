@@ -15,6 +15,13 @@ const activePolygonPct = Math.sqrt(activePct);
 const svgXOffset = 4;
 const svgYOffset = 0;
 
+var lang = Cookies.get("lang");
+if (lang != undefined) {
+    // do nothing?
+} else {
+    lang = "en";
+}
+
 class CellState {
     goal = "";
     hover = false;
@@ -411,7 +418,7 @@ function fillBoard(boardData, teamColours) {
             let state = cellStates[i];
             if (state.updateGoal(goal)) {
                 const textDiv = document.getElementById("cell-text" + i);
-                const node = document.createTextNode(goal.name);
+                const node = document.createTextNode(getTranslatedGoalName(goal));
                 textDiv.replaceChildren(node);
                 fitText(textDiv, 0.7);
 
@@ -613,6 +620,39 @@ function copyResults() {
     navigator.clipboard.writeText(finalString);
 }
 
+function listLanguages(joinView) {
+    var langs = joinView.languages;
+    var langSelector = document.getElementById("lang-select");
+    var englishOpt = document.createElement("option");
+    englishOpt.text = "en";
+    englishOpt.value = "en";
+    langSelector.replaceChildren(englishOpt)
+    for (const l in langs) {
+        var el = document.createElement("option");
+        el.text = l;
+        el.value = l;
+        langSelector.appendChild(el);
+    }
+    
+}
+
+function switchLanguage() {
+    var langSelector = document.getElementById("lang-select");
+    lang = langSelector.options[langSelector.selectedIndex].value;
+    console.log(currentUpdate);
+    Cookies.set("lang", lang);
+    location.reload();
+}
+
+function getTranslatedGoalName(goal) {
+    console.log(lang);
+    console.log(goal.translations);
+    if (lang != "en" && "translations" in goal && lang in goal.translations) {
+        return goal.translations[lang]
+    }
+    return goal.name
+}
+
 websocket.addEventListener("open", getBoard);
 
 // Websocket listeners
@@ -629,6 +669,7 @@ window.addEventListener("JOINED", (data) => {
     setTitle(event.roomName);
     createBoard(event.boardMin);
     fillBoard(event.boardMin, event.teamColours);
+    listLanguages(event);
 });
 
 window.addEventListener("REJOINED", (data) => {
@@ -637,6 +678,7 @@ window.addEventListener("REJOINED", (data) => {
     setTitle(event.roomName);
     createBoard(event.boardMin);
     fillBoard(event.boardMin, event.teamColours);
+    listLanguages(event);
 });
 
 window.addEventListener("MEMBERS", (data) => {
