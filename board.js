@@ -633,7 +633,7 @@ function listLanguages(joinView) {
         el.value = l;
         langSelector.appendChild(el);
     }
-    
+    langSelector.value = lang;
 }
 
 function switchLanguage() {
