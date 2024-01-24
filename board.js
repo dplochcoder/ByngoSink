@@ -1,6 +1,6 @@
 var urlParams = new URLSearchParams(window.location.search);
 const roomId = urlParams.get("id");
-const userId = Cookies.get(roomId);
+const userId = localStorage.getItem(roomId);
 var currentTeamId = null;
 var teamDialog = null;
 var cellStates = {};
@@ -17,6 +17,12 @@ const svgYOffset = 0;
 
 let members = [];
 let teams = {}
+var lang = localStorage.getItem("lang");
+if (lang != undefined) {
+    // do nothing?
+} else {
+    lang = "en";
+}
 
 class CellState {
     goal = "";
@@ -414,7 +420,7 @@ function fillBoard(boardData, teamColours) {
             let state = cellStates[i];
             if (state.updateGoal(goal)) {
                 const textDiv = document.getElementById("cell-text" + i);
-                const node = document.createTextNode(goal.name);
+                const node = document.createTextNode(getTranslatedGoalName(goal));
                 textDiv.replaceChildren(node);
                 fitText(textDiv, 0.7);
 
@@ -616,6 +622,36 @@ function copyResults() {
     navigator.clipboard.writeText(finalString);
 }
 
+function listLanguages(joinView) {
+    var langs = joinView.languages;
+    var langSelector = document.getElementById("lang-select");
+    var englishOpt = document.createElement("option");
+    englishOpt.text = "en";
+    englishOpt.value = "en";
+    langSelector.replaceChildren(englishOpt)
+    for (const l in langs) {
+        var el = document.createElement("option");
+        el.text = l;
+        el.value = l;
+        langSelector.appendChild(el);
+    }
+    langSelector.value = lang;
+}
+
+function switchLanguage() {
+    var langSelector = document.getElementById("lang-select");
+    lang = langSelector.options[langSelector.selectedIndex].value;
+    localStorage.setItem("lang", lang);
+    location.reload();
+}
+
+function getTranslatedGoalName(goal) {
+    if (lang != "en" && "translations" in goal && lang in goal.translations) {
+        return goal.translations[lang]
+    }
+    return goal.name
+}
+
 websocket.addEventListener("open", getBoard);
 
 // Websocket listeners
@@ -626,12 +662,13 @@ window.addEventListener("NOTFOUND", (data) => {
 window.addEventListener("JOINED", (data) => {
     const event = data.detail;
     updateCurrentTeamId(null);
-    Cookies.set(roomId, event.userId, {sameSite: "strict"});
+    localStorage.setItem(roomId, event.userId);
     document.getElementById("room").hidden = false;
     document.getElementById("login-main").hidden = true;
     setTitle(event.roomName);
     createBoard(event.boardMin);
     fillBoard(event.boardMin, event.teamColours);
+    listLanguages(event);
 });
 
 window.addEventListener("REJOINED", (data) => {
@@ -640,6 +677,7 @@ window.addEventListener("REJOINED", (data) => {
     setTitle(event.roomName);
     createBoard(event.boardMin);
     fillBoard(event.boardMin, event.teamColours);
+    listLanguages(event);
 });
 
 function sendChatMessage(chatMessageHTMLEl) {
@@ -816,18 +854,18 @@ window.addEventListener("UPDATE", (data) => {
 
 window.addEventListener("NOAUTH", (data) => {
     revealLogin();
-    Cookies.remove(roomId);
+    localStorage.removeItem(roomId);
 });
 
 window.addEventListener("DOMContentLoaded", () => {
-    let wsUrl = Cookies.get("wsUrl");
+    let wsUrl = localStorage.getItem("wsUrl");
     if (wsUrl != null) {
         document.getElementById("websocket-url").value = wsUrl;
     }
     document.getElementById("websocket-url").addEventListener("change", (event) => {
-        console.log("Websocket chaning to " + event.target.value);
+        console.log("Websocket changing to " + event.target.value);
         websocket = new ReconnectingWebSocket(event.target.value);
         subscribeWebsocket();
-        Cookies.set("wsUrl", event.target.value, {sameSite: "strict"});
+        localStorage.setItem("wsUrl", event.target.value);
     });
 });

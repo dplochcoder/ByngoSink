@@ -19,6 +19,7 @@
 </head>
 <body>
     <div id="container">
+        <div id="error-display" hidden></div>
         <main id="room">
             <div id="board-container" class="">
                 <table id="board">
@@ -90,6 +91,9 @@
             </div>
             <input id="copy-results" type="button" value="Copy Results" onclick="copyResults()">
             <div class="flex">
+                <select id="lang-select" onchange="switchLanguage()">
+                    <option>en</option>
+                </select>
                 <a href="https://github.com/ManicJamie/ByngoSink" target="_blank">github</a>
                 about
             </div>
