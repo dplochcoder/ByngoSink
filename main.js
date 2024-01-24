@@ -1,4 +1,4 @@
-var wsUrl = Cookies.get("wsUrl");
+var wsUrl = localStorage.getItem("wsUrl");
 if (wsUrl == undefined) {
     wsUrl = "wss://byngosink-ws.manicjamie.com:555/"
 }

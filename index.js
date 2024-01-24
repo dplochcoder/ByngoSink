@@ -81,7 +81,7 @@ window.addEventListener("LISTED", (data) => {
 
 window.addEventListener("OPENED", (data) => {
     const event = data.detail;
-    Cookies.set(event.roomId, event.userId, {sameSite: "strict"});
+    localStorage.setItem(event.roomId, event.userId);
     window.location.href = "board.html?id=" + event.roomId;
 });
 
@@ -101,14 +101,14 @@ function join_room(roomId) {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-    let wsUrl = Cookies.get("wsUrl");
+    let wsUrl = localStorage.getItem("wsUrl");
     if (wsUrl != null) {
         document.getElementById("websocket-url").value = wsUrl;
     }
     document.getElementById("websocket-url").addEventListener("change", (event) => {
-        console.log("Websocket chaning to " + event.target.value);
+        console.log("Websocket changing to " + event.target.value);
         websocket = new ReconnectingWebSocket(event.target.value);
-        Cookies.set("wsUrl", event.target.value, {sameSite: "strict"});
+        localStorage.setItem("wsUrl", event.target.value);
     });
 });
 

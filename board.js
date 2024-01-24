@@ -1,6 +1,6 @@
 var urlParams = new URLSearchParams(window.location.search);
 const roomId = urlParams.get("id");
-const userId = Cookies.get(roomId);
+const userId = localStorage.getItem(roomId);
 var currentTeamId = null;
 var teamDialog = null;
 var cellStates = {};
@@ -15,7 +15,7 @@ const activePolygonPct = Math.sqrt(activePct);
 const svgXOffset = 4;
 const svgYOffset = 0;
 
-var lang = Cookies.get("lang");
+var lang = localStorage.getItem("lang");
 if (lang != undefined) {
     // do nothing?
 } else {
@@ -639,14 +639,11 @@ function listLanguages(joinView) {
 function switchLanguage() {
     var langSelector = document.getElementById("lang-select");
     lang = langSelector.options[langSelector.selectedIndex].value;
-    console.log(currentUpdate);
-    Cookies.set("lang", lang);
+    localStorage.setItem("lang", lang);
     location.reload();
 }
 
 function getTranslatedGoalName(goal) {
-    console.log(lang);
-    console.log(goal.translations);
     if (lang != "en" && "translations" in goal && lang in goal.translations) {
         return goal.translations[lang]
     }
@@ -663,7 +660,7 @@ window.addEventListener("NOTFOUND", (data) => {
 window.addEventListener("JOINED", (data) => {
     const event = data.detail;
     updateCurrentTeamId(null);
-    Cookies.set(roomId, event.userId, {sameSite: "strict"});
+    localStorage.setItem(roomId, event.userId);
     document.getElementById("room").hidden = false;
     document.getElementById("login-main").hidden = true;
     setTitle(event.roomName);
@@ -734,18 +731,18 @@ window.addEventListener("UPDATE", (data) => {
 
 window.addEventListener("NOAUTH", (data) => {
     revealLogin();
-    Cookies.remove(roomId);
+    localStorage.removeItem(roomId);
 });
 
 window.addEventListener("DOMContentLoaded", () => {
-    let wsUrl = Cookies.get("wsUrl");
+    let wsUrl = localStorage.getItem("wsUrl");
     if (wsUrl != null) {
         document.getElementById("websocket-url").value = wsUrl;
     }
     document.getElementById("websocket-url").addEventListener("change", (event) => {
-        console.log("Websocket chaning to " + event.target.value);
+        console.log("Websocket changing to " + event.target.value);
         websocket = new ReconnectingWebSocket(event.target.value);
         subscribeWebsocket();
-        Cookies.set("wsUrl", event.target.value, {sameSite: "strict"});
+        localStorage.setItem("wsUrl", event.target.value);
     });
 });
