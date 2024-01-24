@@ -5,17 +5,26 @@ if (wsUrl == undefined) {
 console.debug("Starting connection to " + wsUrl);
 var websocket = new ReconnectingWebSocket(wsUrl); 
 
+function handleError(errorMessage) {
+    console.error(errorMessage);
+    const errorDisplay = document.getElementById("error-display");
+    if (errorDisplay) {
+        errorDisplay.hidden = false;
+        errorDisplay.innerText = errorMessage;
+    }
+}
+
 // Response dispatch; rather than repeating listen code in subpages, distribute events as needed
 function socket_message(data) {
     const event = JSON.parse(data);
     console.debug(event);
-    if (event.verb == "ERROR") { console.error(event.message) }
+    if (event.verb == "ERROR") { handleError(event.message) }
     window.dispatchEvent(new CustomEvent(event.verb, {detail: event}));
 }
 
 function subscribeWebsocket() {
     websocket.addEventListener("message", ({ data }) => socket_message(data));
-    websocket.addEventListener("error", (event) => console.error(event));
+    websocket.addEventListener("error", (event) => handleError(event));
 }
 
 subscribeWebsocket();
