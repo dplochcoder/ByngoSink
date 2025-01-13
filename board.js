@@ -11,6 +11,7 @@ const cellBgColor = "#181818";
 const hoverColour = "#616161";
 const hoverPct = 0.5;
 const activePct = 0.5;
+const invasionPct = 0.75;
 const activePolygonPct = Math.sqrt(activePct);
 const svgXOffset = 4;
 const svgYOffset = 0;
@@ -28,7 +29,17 @@ class CellState {
     goal = "";
     hover = false;
     marked = [];
+    invasionMarked = [];
     activeTeamId = null;
+    maxMarks = 0;
+
+    updateMaxMarks(newMaxMarks) {
+        if (this.maxMarks != newMaxMarks) {
+            this.maxMarks = newMaxMarks;
+            return true;
+        }
+        return false;
+    }
 
     updateGoal(newGoal) {
         if (this.goal != newGoal) {
@@ -49,6 +60,14 @@ class CellState {
     updateMarked(newMarked) {
         if (this.marked !== newMarked) {
             this.marked = newMarked;
+            return true;
+        }
+        return false;
+    }
+
+    updateInvasionMarked(newInvasionMarked) {
+        if (this.invasionMarked !== newInvasionMarked) {
+            this.invasionMarked = newInvasionMarked;
             return true;
         }
         return false;
@@ -77,13 +96,12 @@ class CellState {
         for (var marking of this.marked) {
             if (marking[0] == teamId) return marking[1];
         }
+        for (var marking of this.invasionMarked) { return marking; }
         return null;
     }
 
     isFull() {
-        // TODO: Fill the cell if the goal cannot be claimed by anyone else (lockout formats)
-        // Otherwise, fill if self is only mark
-        if (this.marked.length == 1 && this.marked[0][0] == this.activeTeamId) {
+        if ((this.marked.length == 1 && this.marked[0][0] == this.activeTeamId) || (this.maxMarks > 0 && this.marked.length >= this.maxMarks)) {
             return true;
         }
         return false;
@@ -332,7 +350,7 @@ function renderCrossPolygons(svg, width, height, markings, hover, leaveGap) {
 }
 
 function buildSvgShapes(cell, svg, state) {
-    if (state.marked.length == 0) {
+    if (state.marked.length == 0 && state.invasionMarked.length == 0) {
         svg.width = 0;
         svg.height = 0;
         return;
@@ -346,6 +364,10 @@ function buildSvgShapes(cell, svg, state) {
 
     if (state.marked.length == 1 && state.isFull()) {
        renderPolygon(svg, 100, 100, squarePolygon, state.marked[0][1], state.hover);
+       return;
+    }
+    if (state.marked.length == 0 && state.invasionMarked.length == 1) {
+       renderPolygon(svg, 100, 100, squarePolygon, state.invasionMarked[0], state.hover);
        return;
     }
 
@@ -363,7 +385,7 @@ function buildSvgShapes(cell, svg, state) {
     }
 }
 
-function updateCellMarkings(index, teamMarkings) {
+function updateCellMarkings(index, teamMarkings, invasionMarked) {
     if (index == -1) return;
 
     const cell = document.getElementById("cell" + index);
@@ -373,6 +395,7 @@ function updateCellMarkings(index, teamMarkings) {
 
     let state = cellStates[index];
     if (teamMarkings != null && state.updateMarked(teamMarkings)) updated = true;
+    if (invasionMarked != null && state.updateInvasionMarked(invasionMarked)) updated = true;
     if (state.updateActiveTeamId(currentTeamId)) updated = true;
     if (state.updateHover(newHover)) updated = true;
     if (!updated) return;
@@ -402,7 +425,7 @@ function updateCurrentTeamId(newTeamId) {
     currentTeamId = newTeamId;
 
     for (const cellId in cellStates) {
-        updateCellMarkings(cellId, null);
+        updateCellMarkings(cellId, null, null);
     }
 }
 
@@ -410,9 +433,14 @@ function fillBoard(boardData, teamColours) {
     // Update local state.
     let goals = boardData.goals;
     let marks = boardData.marks;
+    let max_marks = boardData.maxMarksPerSquare;
     let extras = boardData.extras;
     if (extras != undefined) {
         var headers = boardData.extras.colMarks;
+        var invasion_moves = boardData.extras.invasionMoves;
+    }
+    for (const cellId in cellStates) {
+        cellStates[cellId].updateMaxMarks(max_marks);
     }
     if (goals != undefined) {
         for (const i in goals) {
@@ -424,7 +452,6 @@ function fillBoard(boardData, teamColours) {
                 textDiv.replaceChildren(node);
                 fitText(textDiv, 0.7);
 
-                // TODO: Separate revelation from markability (for Invasion)
                 const cell = document.getElementById("cell" + i);
                 cell.onclick = markOrUnmarkGoal(i);
             }
@@ -432,8 +459,10 @@ function fillBoard(boardData, teamColours) {
     }
     if (marks != undefined && teamColours != undefined) {
         var all_marks = {};
+        var invasion_marks = {};
         for (const cellId in cellStates) {
             all_marks[cellId] = [];
+            invasion_marks[cellId] = [];
         }
         for (const teamId in marks) {
             let colour = teamColours[teamId];
@@ -441,10 +470,16 @@ function fillBoard(boardData, teamColours) {
                 all_marks[marked].push([teamId, colour]);
             }
         }
+        if (invasion_moves != undefined && currentTeamId != null) {
+            let colour = interpolate(teamColours[currentTeamId], "#000000", invasionPct);
+            for (const cellId of invasion_moves) {
+                invasion_marks[cellId].push(colour);
+            }
+        }
 
         // We have to loop over all ids in case some goal was unmarked.
         for (const cellId in cellStates) {
-            updateCellMarkings(cellId, all_marks[cellId]);
+            updateCellMarkings(cellId, all_marks[cellId], invasion_marks[cellId]);
         }
     }
     if (headers != undefined) {
@@ -477,8 +512,8 @@ function createTeamDialog() {
 
 function onCellHoverChanged(id) {
     function func(event) {
-        updateCellMarkings(lastHover, null);
-        updateCellMarkings(id, null);
+        updateCellMarkings(lastHover, null, null);
+        updateCellMarkings(id, null, null);
     }
     return func;
 }
