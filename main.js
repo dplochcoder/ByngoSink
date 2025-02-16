@@ -24,7 +24,7 @@ function socket_message(data) {
 
 function subscribeWebsocket() {
     websocket.addEventListener("message", ({ data }) => socket_message(data));
-    websocket.addEventListener("error", (event) => handleError(event));
+    websocket.addEventListener("error", ({ event }) => handleError("Connection error!"));
 }
 
 subscribeWebsocket();
