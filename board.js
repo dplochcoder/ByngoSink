@@ -5,6 +5,8 @@ var currentTeamId = null;
 var teamDialog = null;
 var cellStates = {};
 var headerStates = {};
+var teamBoxes = {};
+var teamNames = {};
 var lastHover = -1;
 
 const cellBgColor = "#181818";
@@ -106,6 +108,17 @@ class CellState {
         }
         return false;
     }
+}
+
+function numMarked(teamId) {
+    let c = 0;
+    for (const cellId in cellStates) {
+        let cellState = cellStates[cellId];
+        if (cellState.isMarkedFor(teamId)) {
+            c += 1;
+        }
+    }
+    return c;
 }
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -429,6 +442,15 @@ function updateCurrentTeamId(newTeamId) {
     }
 }
 
+function setTeamText(teamId) {
+    txt = teamNames[teamId];
+    count = numMarked(teamId);
+    if (count > 0) {
+        txt += " (" + count + ")";
+    }
+    teamBoxes[teamId].innerText = txt;
+}
+
 function fillBoard(boardData, teamColours) {
     // Update local state.
     let goals = boardData.goals;
@@ -495,6 +517,9 @@ function fillBoard(boardData, teamColours) {
         for (const headId in headerStates) {
             updateHeaderMarkings(headId, all_headings[headId])
         }
+    }
+    for (const teamId in teamBoxes) {
+        setTeamText(teamId);
     }
 }
 
@@ -840,6 +865,8 @@ window.addEventListener("MEMBERS", (data) => {
     sendSystemMessagesFromUpdatedMembersEvent(event)
     const teamSelectorInner = document.getElementById("teamSelector-inner");
     teamSelectorInner.textContent = "";
+    teamBoxes = {};
+    teamNames = {};
     for (const teamId in event.teams) {
         teamView = event.teams[teamId];
         let teamWrapper = create_with_class("div", "team-wrapper");
@@ -847,8 +874,12 @@ window.addEventListener("MEMBERS", (data) => {
         teamWrapper.setAttribute("ondblclick", "joinTeam(this)");
         let teamBox = create_with_class("div", "team-box bordered");
         teamBox.setAttribute("style", "background-color: " + teamView.colour + ";");
-        teamBox.innerText = teamView.name;
         teamWrapper.appendChild(teamBox);
+        
+        teamBoxes[teamId] = teamBox;
+        teamNames[teamId] = teamView.name;
+        setTeamText(teamId);
+
         for (const member of teamView.members) {
             let memberPara = create_with_class("p", "team-member");
             memberPara.innerText = member.name;
